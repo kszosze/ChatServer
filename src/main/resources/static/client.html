@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hello WebSocket</title>
+    <script src="sockjs-0.3.4.min.js"></script>
+    <script src="stomp.js"></script>
+    <script type="text/javascript">
+        var stompClientCommon = null;
+        var stompClientPrivate = null;
+        var server = null;
+        var port = null;
+        var username = null;
+        var filter = null;
+
+        function setConnected(connected) {
+            document.getElementById('connect').disabled = connected;
+            document.getElementById('disconnect').disabled = !connected;
+            document.getElementById('greeting').style.visibility = connected ? 'visible':'hidden';
+            document.getElementById('greeting').textContent = "Hello " + name;
+            document.getElementById('chatDiv').style.visibility = connected ? 'visible':'hidden';            
+            document.getElementById('privateChatDiv').style.visibility = connected ? 'visible':'hidden';
+            document.getElementById('filterDiv').style.visibility = connected ? 'visible':'hidden';
+        }
+        function connect() {
+        	server = document.getElementById('server').value;
+            port = document.getElementById('port').value;
+            name = document.getElementById('name').value;
+            if (server && port && name)
+            {
+	            var socket = new SockJS('http://'+server+':'+port+'/send');
+	            stompClientCommon = Stomp.over(socket);
+	            stompClientCommon.connect({}, function(frame) {
+	                setConnected(true);
+	                console.log('Connected: ' + frame);
+	                stompClientCommon.subscribe('/topic/common', function(messageObject){
+	                    showChat(JSON.parse(messageObject.body).sender, JSON.parse(messageObject.body).content);
+	                });
+	                stompClientCommon.subscribe('/topic/'+name, function(messageObject){
+	                    showChatPrivate(JSON.parse(messageObject.body).sender, JSON.parse(messageObject.body).content);
+	                	});
+	            });
+            }else {
+            	alert("Missing data, plase feel all the inputs");
+            }
+        }
+
+        function disconnect() {
+            if (stompClientCommon != null) {
+                stompClientCommon.disconnect();
+            }
+            if (stompClientPrivate != null) {
+                stompClientPrivate.disconnect();
+            }
+            setConnected(false);
+            console.log("Disconnected");
+        }
+        
+        function sendMessage() {
+            var message = document.getElementById('message').value;
+            stompClientCommon.send("/chatapp/send", {}, JSON.stringify({ 'room': 'common' ,'sender':name ,'content': message }));
+        }
+        
+        function sendPrivateMessage() {
+            var message = document.getElementById('privateMessage').value;
+            var room = document.getElementById('destiny').value;
+            stompClientCommon.send("/chatapp/send", {}, JSON.stringify({ 'room': room ,'sender':name ,'content': message }));
+        }
+
+        function showChat(sender, message) {
+        	if (filter != sender)
+        	{
+	            var response = document.getElementById('chat');
+	            var p = document.createElement('p');
+	            p.style.wordWrap = 'break-word';
+	            p.appendChild(document.createTextNode(sender+":"+message));
+	            response.appendChild(p);
+        	}
+        }
+        function showChatPrivate(sender, message) {
+        	if (filter != sender)
+        	{
+	            var response = document.getElementById('chat');
+	            var p = document.createElement('p');
+	            p.style.color = 'red';
+	            p.style.wordWrap = 'break-word';
+	            p.appendChild(document.createTextNode(sender + ' whisper :' +message));
+	            response.appendChild(p);
+        	}
+        }
+        function enableFilter()
+        {
+        	filter = document.getElementById('filter').value;
+        }
+        function disableFilter()
+        {
+        	filter = "";
+        }
+    </script>
+</head>
+<body onload="disconnect()">
+<noscript><h2 style="color: #ff0000">Seems your browser doesn't support Javascript! 
+	Websocket relies on Javascript being enabled. 
+	Please enable Javascript and reload this page!</h2></noscript>
+<div>
+    <div>
+    	<label>server</label><input type="text" id="server" value="localhost"/>
+    	<label>port</label><input type="text" id="port" value="8080">
+    	<label>user name</label><input type="text" id="name" />
+        <button id="connect" onclick="connect();">Connect</button>
+        <button id="disconnect" disabled="disabled" onclick="disconnect();">Disconnect</button>
+    </div>    
+    <span id="greeting" style="visibility: hidden"> Hello </span>
+    <div style="height:30em;width:50em; overflow: auto;border:thin gray solid;">    	
+      	<p id="chat"></p>
+    </div> 
+    <div id="chatDiv" style="visibility: hidden; float:left">
+        <label>What is your message?</label><input type="text" id="message" /> <button id="sendMessage" onclick="sendMessage();">Send</button>
+    </div>
+    <div id="privateChatDiv" style="visibility: hidden; float:left">
+    	<label>Private message for :</label><input type="text" id="destiny" />  	
+        <label>What is your message?</label><input type="text" id="privateMessage" /> <button id="sendPrivateMessage" onclick="sendPrivateMessage();">Send Private</button>
+    </div>
+    <div id="filterDiv" style="visibility: hidden; float:left">
+    	<label>Enable filter for :</label><input type="text" id="filter" /><button id="filter" onclick="enableFilter();">Filter</button>  	
+        <label>Whatever message from that user will not be seen</label><button id="filter" onclick="disableFilter();">Disable</button>
+    </div>
+</div>
+</body>
+</html>
