@@ -5,3 +5,4 @@ services:
   - mysql
 sudo: false
 install: true
+script: mvn clean build test
